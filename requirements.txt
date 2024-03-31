@@ -43,3 +43,4 @@ gdown
 wget
 seaborn
 piper_phonemize
+omegaconf
