@@ -66,9 +66,7 @@ def synthesise(text, spks, n_timesteps, temperature, length_scale):
 
 @torch.inference_mode()
 def to_vocos_waveform(mel, vocoder):
-    # audio = vocoder.decode(mel)  # .clamp(-1, 1)
     audio = vocoder.decode(mel).cpu().squeeze()
-    # audio = denoiser(audio.cpu().squeeze(0), strength=0.00025).cpu().squeeze()
     return audio
 
 
@@ -85,7 +83,7 @@ def tts(text, spk_id, n_timesteps=10, length_scale=1.0, temperature=0.70, output
     rtfs_w = []
 
     output = synthesise(text, n_spk, n_timesteps, temperature,
-                        length_scale)  # , torch.tensor([15], device=device, dtype=torch.long).unsqueeze(0))
+                        length_scale)
     print(output['mel'].shape)
     output['waveform'] = to_vocos_waveform(output['mel'], vocos_vocoder.cuda())
 
@@ -119,8 +117,9 @@ def tts(text, spk_id, n_timesteps=10, length_scale=1.0, temperature=0.70, output
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--output_path', type=str, default=None, help='Path to output the files.')
-    parser.add_argument('--text_input', type=str, default="This is a speech synthesis test.", help='Text file to synthesize')
-    # parser.add_argument('--text_file', type=str, default=None, help='Text file to synthesize')
+    parser.add_argument('--text_input', type=str, default="Això és una prova de síntesi de veu.", help='Text file to synthesize')
+    parser.add_argument('--temperature', type=float, default=0.70, help='Temperature')
+    parser.add_argument('--length_scale', type=float, default=0.9, help='Speech rate')
     parser.add_argument('--speaker_id', type=int, default=20, help='Speaker ID')
     args = parser.parse_args()
 
@@ -136,5 +135,4 @@ if __name__ == "__main__":
     # load VoCata model
     vocos_vocoder = load_vocos_vocoder_from_hf(vocata)
 
-    tts(args.text_input, spk_id=args.speaker_id, n_timesteps=80, length_scale=0.95, temperature=0.70,
-        output_path=args.output_path)  # timesteps 90 before
+    tts(args.text_input, spk_id=args.speaker_id, n_timesteps=80, length_scale=args.length_scale, temperature=args.temperature, output_path=args.output_path)
