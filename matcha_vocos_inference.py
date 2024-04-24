@@ -11,7 +11,8 @@ import torch
 import argparse
 
 # Vocos imports
-from matcha.vocos import Vocos
+# from matcha.vocos import Vocos
+from vocos import Vocos
 
 # Matcha imports
 from matcha.models.matcha_tts import MatchaTTS
@@ -21,7 +22,7 @@ from matcha.utils.utils import get_user_data_dir, intersperse
 
 def load_model_from_hf(matcha_hf):
     model = MatchaTTS.from_pretrained(matcha_hf)
-    model.eval()
+    # model.eval()
     return model
 
 
