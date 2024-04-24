@@ -126,14 +126,14 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    matchcat = "BSC-LT/matcha-tts-cat-multispeaker"
-    vocata = "BSC-LT/vocos-mel-22khz-cat"
+    matxa = "BSC-LT/matcha-tts-cat-multispeaker"
+    alvocat = "BSC-LT/vocos-mel-22khz-cat"
 
     # load MatchCat from HF
-    model = load_model_from_hf(matchcat)
+    model = load_model_from_hf(matxa)
     print(f"Model loaded! Parameter count: {count_params(model)}")
 
     # load VoCata model
-    vocos_vocoder = load_vocos_vocoder_from_hf(vocata)
+    vocos_vocoder = load_vocos_vocoder_from_hf(alvocat)
 
     tts(args.text_input, spk_id=args.speaker_id, n_timesteps=80, length_scale=args.length_scale, temperature=args.temperature, output_path=args.output_path)
