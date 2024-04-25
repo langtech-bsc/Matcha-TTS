@@ -125,8 +125,8 @@ if __name__ == "__main__":
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    matxa = "BSC-LT/matcha-tts-cat-multispeaker"
-    alvocat = "BSC-LT/vocos-mel-22khz-cat"
+    matxa = "projecte-aina/matxa-tts-cat-multispeaker"
+    alvocat = "projecte-aina/alvocat-vocos-22khz"
 
     # load MatchCat from HF
     model = load_model_from_hf(matxa, device=device).to(device)
