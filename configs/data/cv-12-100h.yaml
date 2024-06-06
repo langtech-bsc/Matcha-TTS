@@ -1,0 +1,21 @@
+_target_: matcha.data.text_mel_datamodule.TextMelDataModule
+name: ljspeech-cat
+train_filelist_path: /gpfs/projects/bsc88/speech/data/raw_data/cv-12-filelists/cv_12_filt_100h_train.txt
+valid_filelist_path: /gpfs/projects/bsc88/speech/data/raw_data/cv-12-filelists/cv_12_filt_100h_val.txt
+batch_size: 32
+num_workers: 20
+pin_memory: True
+cleaners: [catalan_cleaners]
+add_blank: True
+n_spks: 840
+n_fft: 1024
+n_feats: 80
+sample_rate: 22050
+hop_length: 256
+win_length: 1024
+f_min: 0
+f_max: 8000
+data_statistics:  # Computed for ljspeech dataset
+  mel_mean: -6.546713
+  mel_std: 2.504968
+seed: ${seed}
