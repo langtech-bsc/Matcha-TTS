@@ -128,11 +128,11 @@ if __name__ == "__main__":
     matxa = "projecte-aina/matxa-tts-cat-multispeaker"
     alvocat = "projecte-aina/alvocat-vocos-22khz"
 
-    # load MatchCat from HF
+    # load Matxa from HF
     model = load_model_from_hf(matxa, device=device).to(device)
     print(f"Model loaded! Parameter count: {count_params(model)}")
 
-    # load VoCata model
+    # load AlVoCat model
     vocos_vocoder = load_vocos_vocoder_from_hf(alvocat, device=device).to(device)
 
     tts(args.text_input, spk_id=args.speaker_id, n_timesteps=80, length_scale=args.length_scale, temperature=args.temperature, output_path=args.output_path)
