@@ -116,6 +116,28 @@ matcha-tts --text "<INPUT TEXT>" --steps 10
 
 ## Train with your own dataset
 
+
+To reproduce the training in Catalan you have to use our [version](https://github.com/projecte-aina/espeak-ng) of espeak. follow this steps to compile it. 
+
+
+```bash
+#!/bin/bash
+#fill espeak path and environment path to intstall a new version of espeak.
+export ESPEAK_PATH=/gpfs/projects/bsc88/speech/TTS/repos/espeak-ng_17_05_2024
+export ENV_PATH=/gpfs/projects/bsc88/speech/TTS/environments/matchatts_17_05_2024
+
+git clone https://github.com/projecte-aina/espeak-ng.git $ESPEAK_PATH
+
+export PYTHON=$ENV_PATH/bin/python
+cd $ESPEAK_PATH
+./autogen.sh
+./configure --prefix=$ESPEAK_PATH
+make
+make install
+
+```
+At training time you have to set some environment variables as is shown in the example [train script](launch_train.sh)
+
 Let's assume we are training with LJ Speech
 
 1. Download the dataset from [here](https://keithito.com/LJ-Speech-Dataset/), extract it to `data/LJSpeech-1.1`, and prepare the file lists to point to the extracted data like for [item 5 in the setup of the NVIDIA Tacotron 2 repo](https://github.com/NVIDIA/tacotron2#setup).
