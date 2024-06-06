@@ -123,8 +123,8 @@ To reproduce the training in Catalan you have to use our [version](https://githu
 ```bash
 #!/bin/bash
 #fill espeak path and environment path to intstall a new version of espeak.
-export ESPEAK_PATH=/gpfs/projects/bsc88/speech/TTS/repos/espeak-ng_17_05_2024
-export ENV_PATH=/gpfs/projects/bsc88/speech/TTS/environments/matchatts_17_05_2024
+export ESPEAK_PATH=<path-to-espeak>
+export ENV_PATH=<path-to-env>
 
 git clone https://github.com/projecte-aina/espeak-ng.git $ESPEAK_PATH
 
