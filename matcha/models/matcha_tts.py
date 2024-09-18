@@ -19,12 +19,14 @@ from matcha.utils.model import (
 
 log = utils.get_pylogger(__name__)
 
+from typing import Optional
 
 class MatchaTTS(BaseLightningClass):  # 🍵
     def __init__(
         self,
         n_vocab,
         n_spks,
+        n_langs,
         spk_emb_dim,
         n_feats,
         encoder,
@@ -46,9 +48,14 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         self.n_feats = n_feats
         self.out_size = out_size
         self.prior_loss = prior_loss
+        self.n_langs = n_langs
+        self.lang_emb_dim = spk_emb_dim
 
         if n_spks > 1:
             self.spk_emb = torch.nn.Embedding(n_spks, spk_emb_dim)
+        
+        if n_langs > 1:
+            self.lang_emb =  torch.nn.Embedding(n_langs, self.lang_emb_dim)
 
         self.encoder = TextEncoder(
             encoder.encoder_type,
@@ -57,6 +64,7 @@ class MatchaTTS(BaseLightningClass):  # 🍵
             n_vocab,
             n_spks,
             spk_emb_dim,
+            n_langs
         )
 
         self.decoder = CFM(
@@ -69,9 +77,35 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         )
 
         self.update_data_statistics(data_statistics)
+    
+    @classmethod
+    def from_hparams(cls, cfg: str):
+        """
+        Class method to create a new Matcha-TTS model instance from hyperparameters stored in a yaml configuration file.
+        """
+        c = OmegaConf.load(cfg)
+
+        model = cls(n_vocab=c.n_vocab, n_feats=c.n_feats, n_spks=c.n_spks, spk_emb_dim=c.spk_emb_dim,
+                    optimizer=c.optimizer, out_size=c.out_size, prior_loss=c.prior_loss, scheduler=c.scheduler,
+                    cfm=c.cfm, data_statistics=c.data_statistics, decoder=c.decoder, encoder=c.encoder)
+        return model
+
+    @classmethod
+    def from_pretrained(cls, repo_id: str, device, revision: Optional[str] = None):
+        """
+        Class method to create a new Matcha-TTS model instance from a pre-trained model stored in the Hugging Face
+        model hub.
+        """
+        config_path = hf_hub_download(repo_id=repo_id, filename="config.yaml", revision=revision)
+        model_path = hf_hub_download(repo_id=repo_id, filename="pytorch_model.bin", revision=revision)
+        model = cls.from_hparams(config_path)
+        state_dict = torch.load(model_path, map_location=device)
+        model.load_state_dict(state_dict)
+        # model.eval()
+        return model
 
     @torch.inference_mode()
-    def synthesise(self, x, x_lengths, n_timesteps, temperature=1.0, spks=None, length_scale=1.0):
+    def synthesise(self, x, x_lengths, n_timesteps, temperature=1.0, spks=None, langs=None,length_scale=1.0):
         """
         Generates mel-spectrogram from text. Returns:
             1. encoder outputs
@@ -112,8 +146,11 @@ class MatchaTTS(BaseLightningClass):  # 🍵
             # Get speaker embedding
             spks = self.spk_emb(spks.long())
 
+        if self.n_langs > 1:
+            langs = self.lang_emb(langs.long())
+
         # Get encoder_outputs `mu_x` and log-scaled token durations `logw`
-        mu_x, logw, x_mask = self.encoder(x, x_lengths, spks)
+        mu_x, logw, x_mask = self.encoder(x, x_lengths, spks, langs)
 
         w = torch.exp(logw) * x_mask
         w_ceil = torch.ceil(w) * length_scale
@@ -147,7 +184,7 @@ class MatchaTTS(BaseLightningClass):  # 🍵
             "rtf": rtf,
         }
 
-    def forward(self, x, x_lengths, y, y_lengths, spks=None, out_size=None, cond=None):
+    def forward(self, x, x_lengths, y, y_lengths, spks=None, langs=None, out_size=None, cond=None):
         """
         Computes 3 losses:
             1. duration loss: loss between predicted token durations and those extracted by Monotinic Alignment Search (MAS).
@@ -172,8 +209,11 @@ class MatchaTTS(BaseLightningClass):  # 🍵
             # Get speaker embedding
             spks = self.spk_emb(spks)
 
+        if self.n_langs > 1:
+            langs = self.lang_emb(langs)
+
         # Get encoder_outputs `mu_x` and log-scaled token durations `logw`
-        mu_x, logw, x_mask = self.encoder(x, x_lengths, spks)
+        mu_x, logw, x_mask = self.encoder(x, x_lengths, spks, langs)
         y_max_length = y.shape[-1]
 
         y_mask = sequence_mask(y_lengths, y_max_length).unsqueeze(1).to(x_mask)

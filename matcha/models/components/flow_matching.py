@@ -117,6 +117,47 @@ class BASECFM(torch.nn.Module, ABC):
         )
         return loss, y
 
+    def compute_loss_split_freq_band(self, x1, mask, mu, spks=None, cond=None):
+        """Computes diffusion loss
+
+        Args:
+            x1 (torch.Tensor): Target
+                shape: (batch_size, n_feats, mel_timesteps)
+            mask (torch.Tensor): target mask
+                shape: (batch_size, 1, mel_timesteps)
+            mu (torch.Tensor): output of encoder
+                shape: (batch_size, n_feats, mel_timesteps)
+            spks (torch.Tensor, optional): speaker embedding. Defaults to None.
+                shape: (batch_size, spk_emb_dim)
+
+        Returns:
+            loss: conditional flow matching loss
+            y: conditional flow
+                shape: (batch_size, n_feats, mel_timesteps)
+        """
+        b, _, t = mu.shape
+
+        # High Frequency bins from Target. Shape: (batch_size, n_feats/2, mel_timesteps)
+        # we catch the mid-high frequency bins, which are the most complicated to estimate
+        # x1_hf = x1[:, int(x1.size(1) / 2):-1, :]
+
+        # random timestep
+        t = torch.rand([b, 1, 1], device=mu.device, dtype=mu.dtype)
+        # sample noise p(x_0)
+        z = torch.randn_like(x1)
+
+        y = (1 - (1 - self.sigma_min) * t) * z + t * x1
+        u = x1 - (1 - self.sigma_min) * z
+
+        loss_l = F.mse_loss(self.estimator(y, mask, mu, t.squeeze(), spks)[:, :int(x1.size(1) / 2), :], u[:, :int(x1.size(1) / 2), :], reduction="sum") / (
+            torch.sum(mask) * u.shape[1]
+        )
+
+        loss_h = F.mse_loss(self.estimator(y, mask, mu, t.squeeze(), spks)[:, int(x1.size(1) / 2):-1, :], u[:, int(x1.size(1) / 2):-1, :], reduction="sum") / (
+            torch.sum(mask) * u.shape[1]
+        )
+        return loss_l, loss_h, y
+
 
 class CFM(BASECFM):
     def __init__(self, in_channels, out_channel, cfm_params, decoder_params, n_spks=1, spk_emb_dim=64):

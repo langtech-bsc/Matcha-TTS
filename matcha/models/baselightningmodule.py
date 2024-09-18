@@ -15,6 +15,11 @@ from matcha.utils.utils import plot_tensor
 
 log = utils.get_pylogger(__name__)
 
+# Vocos imports
+from vocos import Vocos
+
+VOCOS_CHECKPOINT="/gpfs/projects/bsc88/speech/TTS/outputs/checkpoints/Vocos/last.ckpt"
+VOCOS_CONFIG="/gpfs/projects/bsc88/speech/TTS/repos/Matcha-TTS-BERT/configs/configs_vocos/vocos-matcha-inference.yaml"
 
 class BaseLightningClass(LightningModule, ABC):
     def update_data_statistics(self, data_statistics):
@@ -45,8 +50,8 @@ class BaseLightningClass(LightningModule, ABC):
                 "optimizer": optimizer,
                 "lr_scheduler": {
                     "scheduler": scheduler,
-                    "interval": self.hparams.scheduler.lightning_args.interval,
-                    "frequency": self.hparams.scheduler.lightning_args.frequency,
+                    "interval": "epoch", #self.hparams.scheduler.lightning_args.interval, #
+                    "frequency": 1, #self.hparams.scheduler.lightning_args.frequency, #
                     "name": "learning_rate",
                 },
             }
@@ -57,6 +62,7 @@ class BaseLightningClass(LightningModule, ABC):
         x, x_lengths = batch["x"], batch["x_lengths"]
         y, y_lengths = batch["y"], batch["y_lengths"]
         spks = batch["spks"]
+        langs = batch["langs"]
 
         dur_loss, prior_loss, diff_loss = self(
             x=x,
@@ -64,6 +70,7 @@ class BaseLightningClass(LightningModule, ABC):
             y=y,
             y_lengths=y_lengths,
             spks=spks,
+            langs=langs,
             out_size=self.out_size,
         )
         return {
@@ -122,6 +129,20 @@ class BaseLightningClass(LightningModule, ABC):
             sync_dist=True,
         )
 
+        #lr log with scheduler
+        #log.info(self.trainer.lr_scheduler_configs[0].scheduler.optimizer.param_groups[0]["lr"])
+        if self.hparams.scheduler not in (None, {}):
+            #log.info(self.trainer.lr_scheduler_configs[0].scheduler.optimizer.param_groups[0]["lr"])
+            self.log(
+                "model/lr",
+                self.trainer.lr_scheduler_configs[0].scheduler.optimizer.param_groups[0]["lr"],
+                on_step=True,
+                on_epoch=True,
+                logger=True,
+                prog_bar=True,
+                sync_dist=True,
+            )
+
         return {"loss": total_loss, "log": loss_dict}
 
     def validation_step(self, batch: Any, batch_idx: int):
@@ -179,13 +200,19 @@ class BaseLightningClass(LightningModule, ABC):
                     )
 
             log.debug("Synthesising...")
+            vocoder = Vocos.from_local_pretrained(VOCOS_CONFIG, VOCOS_CHECKPOINT, "cuda")
             for i in range(2):
                 x = one_batch["x"][i].unsqueeze(0).to(self.device)
                 x_lengths = one_batch["x_lengths"][i].unsqueeze(0).to(self.device)
                 spks = one_batch["spks"][i].unsqueeze(0).to(self.device) if one_batch["spks"] is not None else None
-                output = self.synthesise(x[:, :x_lengths], x_lengths, n_timesteps=10, spks=spks)
-                y_enc, y_dec = output["encoder_outputs"], output["decoder_outputs"]
+                langs = one_batch["langs"][i].unsqueeze(0).to(self.device) if one_batch["spks"] is not None else None
+                output = self.synthesise(x[:, :x_lengths], x_lengths, n_timesteps=10, spks=spks, langs=langs)
+                y_enc, y_dec, mel = output["encoder_outputs"], output["decoder_outputs"], output["mel"]
                 attn = output["attn"]
+
+                vocoder = vocoder.to(self.device)
+                y_hat_audio = vocoder.decode(mel)
+
                 self.logger.experiment.add_image(
                     f"generated_enc/{i}",
                     plot_tensor(y_enc.squeeze().cpu()),
@@ -204,6 +231,12 @@ class BaseLightningClass(LightningModule, ABC):
                     self.current_epoch,
                     dataformats="HWC",
                 )
+                self.logger.experiment.add_audio(
+                            f"audio_{i}_spk_{spks.item()}_lang{langs.item()}",
+                            y_hat_audio.squeeze().cpu() ,
+                            self.global_step,
+                            22050, # sample rate
+                        )
 
     def on_before_optimizer_step(self, optimizer):
         self.log_dict({f"grad_norm/{k}": v for k, v in grad_norm(self, norm_type=2).items()})
