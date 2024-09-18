@@ -10,7 +10,7 @@ from matcha.text import text_to_sequence
 from matcha.utils.audio import mel_spectrogram
 from matcha.utils.model import fix_len_compatibility, normalize
 from matcha.utils.utils import intersperse
-
+import torchaudio.functional as Fa
 
 def parse_filelist(filelist_path, split_char="|"):
     with open(filelist_path, encoding="utf-8") as f:
@@ -30,6 +30,7 @@ class TextMelDataModule(LightningDataModule):
         cleaners,
         add_blank,
         n_spks,
+        n_langs,
         n_fft,
         n_feats,
         sample_rate,
@@ -57,6 +58,7 @@ class TextMelDataModule(LightningDataModule):
         self.trainset = TextMelDataset(  # pylint: disable=attribute-defined-outside-init
             self.hparams.train_filelist_path,
             self.hparams.n_spks,
+            self.hparams.n_langs,
             self.hparams.cleaners,
             self.hparams.add_blank,
             self.hparams.n_fft,
@@ -72,6 +74,7 @@ class TextMelDataModule(LightningDataModule):
         self.validset = TextMelDataset(  # pylint: disable=attribute-defined-outside-init
             self.hparams.valid_filelist_path,
             self.hparams.n_spks,
+            self.hparams.n_langs,
             self.hparams.cleaners,
             self.hparams.add_blank,
             self.hparams.n_fft,
@@ -92,7 +95,7 @@ class TextMelDataModule(LightningDataModule):
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
             shuffle=True,
-            collate_fn=TextMelBatchCollate(self.hparams.n_spks),
+            collate_fn=TextMelBatchCollate(self.hparams.n_spks, self.hparams.n_langs),
         )
 
     def val_dataloader(self):
@@ -102,7 +105,7 @@ class TextMelDataModule(LightningDataModule):
             num_workers=self.hparams.num_workers,
             pin_memory=self.hparams.pin_memory,
             shuffle=False,
-            collate_fn=TextMelBatchCollate(self.hparams.n_spks),
+            collate_fn=TextMelBatchCollate(self.hparams.n_spks, self.hparams.n_langs),
         )
 
     def teardown(self, stage: Optional[str] = None):
@@ -123,6 +126,7 @@ class TextMelDataset(torch.utils.data.Dataset):
         self,
         filelist_path,
         n_spks,
+        n_langs, 
         cleaners,
         add_blank=True,
         n_fft=1024,
@@ -137,6 +141,7 @@ class TextMelDataset(torch.utils.data.Dataset):
     ):
         self.filepaths_and_text = parse_filelist(filelist_path)
         self.n_spks = n_spks
+        self.n_langs= n_langs
         self.cleaners = cleaners
         self.add_blank = add_blank
         self.n_fft = n_fft
@@ -154,24 +159,36 @@ class TextMelDataset(torch.utils.data.Dataset):
         random.shuffle(self.filepaths_and_text)
 
     def get_datapoint(self, filepath_and_text):
-        if self.n_spks > 1:
+        if self.n_spks > 1 and (self.n_langs == 1):
             filepath, spk, text = (
                 filepath_and_text[0],
                 int(filepath_and_text[1]),
                 filepath_and_text[2],
             )
+            lang = None
+        elif (self.n_spks > 1) and (self.n_langs > 1):
+            filepath, spk, lang, text = (
+                filepath_and_text[0], #path
+                int(filepath_and_text[1]), #spk_id
+                int(filepath_and_text[2]), #lang_id
+                #0 if int(filepath_and_text[1]) < 50 else 1, # 0 => cat
+                filepath_and_text[3], # text
+            )
         else:
             filepath, text = filepath_and_text[0], filepath_and_text[1]
             spk = None
+            lang = None
 
         text = self.get_text(text, add_blank=self.add_blank)
         mel = self.get_mel(filepath)
 
-        return {"x": text, "y": mel, "spk": spk}
+        return {"x": text, "y": mel, "spk": spk, "lang": lang}
 
     def get_mel(self, filepath):
         audio, sr = ta.load(filepath)
-        assert sr == self.sample_rate
+        if sr != self.sample_rate:  
+            audio = Fa.resample(audio, sr, self.sample_rate)
+        #assert sr == self.sample_rate
         mel = mel_spectrogram(
             audio,
             self.n_fft,
@@ -187,7 +204,8 @@ class TextMelDataset(torch.utils.data.Dataset):
         return mel
 
     def get_text(self, text, add_blank=True):
-        text_norm = text_to_sequence(text, self.cleaners)
+        
+        text_norm = text_to_sequence(text, self.cleaners) 
         if self.add_blank:
             text_norm = intersperse(text_norm, 0)
         text_norm = torch.IntTensor(text_norm)
@@ -202,8 +220,9 @@ class TextMelDataset(torch.utils.data.Dataset):
 
 
 class TextMelBatchCollate:
-    def __init__(self, n_spks):
+    def __init__(self, n_spks, n_langs):
         self.n_spks = n_spks
+        self.n_langs= n_langs
 
     def __call__(self, batch):
         B = len(batch)
@@ -216,6 +235,7 @@ class TextMelBatchCollate:
         x = torch.zeros((B, x_max_length), dtype=torch.long)
         y_lengths, x_lengths = [], []
         spks = []
+        langs = []
         for i, item in enumerate(batch):
             y_, x_ = item["y"], item["x"]
             y_lengths.append(y_.shape[-1])
@@ -223,9 +243,11 @@ class TextMelBatchCollate:
             y[i, :, : y_.shape[-1]] = y_
             x[i, : x_.shape[-1]] = x_
             spks.append(item["spk"])
+            langs.append(item["lang"])
 
         y_lengths = torch.tensor(y_lengths, dtype=torch.long)
         x_lengths = torch.tensor(x_lengths, dtype=torch.long)
         spks = torch.tensor(spks, dtype=torch.long) if self.n_spks > 1 else None
+        langs = torch.tensor(langs, dtype=torch.long) if self.n_langs > 1 else None
 
-        return {"x": x, "x_lengths": x_lengths, "y": y, "y_lengths": y_lengths, "spks": spks}
+        return {"x": x, "x_lengths": x_lengths, "y": y, "y_lengths": y_lengths, "spks": spks, "langs": langs}
