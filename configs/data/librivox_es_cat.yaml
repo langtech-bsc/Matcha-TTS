@@ -1,0 +1,22 @@
+_target_: matcha.data.text_mel_datamodule.TextMelDataModule
+name: ljspeech-cat
+train_filelist_path:  librivox_es_openslr_cat_train_lang.txt
+valid_filelist_path: librivox_es_openslr_cat_val_lang.txt
+batch_size: 32
+num_workers: 20
+pin_memory: True
+cleaners: [basic_cleaners]
+add_blank: True
+n_spks: 150
+n_langs: 2
+n_fft: 1024
+n_feats: 80
+sample_rate: 22050
+hop_length: 256
+win_length: 1024
+f_min: 0
+f_max: 8000
+data_statistics:  # Computed for ljspeech dataset
+  mel_mean: -6.546713
+  mel_std: 2.504968
+seed: ${seed}

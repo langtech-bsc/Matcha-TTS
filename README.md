@@ -19,6 +19,20 @@
 
 > This is the official code implementation of 🍵 Matcha-TTS [ICASSP 2024].
 
+# Language embedding branch
+
+This branch adds a language embedding into the text encoder for handling multilanguage TTS. 
+
+you have to prepare the filelist in the following format:
+
+* <absolute_path>| <speaker_id> | <language_id> | <phonemes>
+
+you also have to phonemize the filelist, this is done to save time and not change between different phonemizers at training time. 
+For inference you'll have to write an specific cleaner for each language.
+
+
+
+
 We propose 🍵 Matcha-TTS, a new approach to non-autoregressive neural TTS, that uses [conditional flow matching](https://arxiv.org/abs/2210.02747) (similar to [rectified flows](https://arxiv.org/abs/2209.03003)) to speed up ODE-based speech synthesis. Our method:
 
 - Is probabilistic
