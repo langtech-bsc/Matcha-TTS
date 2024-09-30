@@ -11,7 +11,6 @@ import torch
 import argparse
 
 # Vocos imports
-# from matcha.vocos import Vocos
 from vocos import Vocos
 
 # Matcha imports
@@ -34,8 +33,8 @@ def load_vocos_vocoder_from_hf(vocos_hf, device):
 
 
 @torch.inference_mode()
-def process_text(text: str):
-    x = torch.tensor(intersperse(text_to_sequence(text, ['catalan_cleaners']), 0), dtype=torch.long, device=device)[
+def process_text(text: str, cleaner:str):
+    x = torch.tensor(intersperse(text_to_sequence(text, [cleaner]), 0), dtype=torch.long, device=device)[
         None]
     x_lengths = torch.tensor([x.shape[-1]], dtype=torch.long, device=device)
     x_phones = sequence_to_text(x.squeeze(0).tolist())
@@ -48,8 +47,8 @@ def process_text(text: str):
 
 
 @torch.inference_mode()
-def synthesise(text, spks, n_timesteps, temperature, length_scale):
-    text_processed = process_text(text)
+def synthesise(text, spks, n_timesteps, temperature, length_scale, cleaner):
+    text_processed = process_text(text, cleaner)
     start_t = dt.datetime.now()
     output = model.synthesise(
         text_processed['x'],
@@ -77,17 +76,17 @@ def save_to_folder(filename: str, output: dict, folder: str):
     sf.write(folder / f'{filename}.wav', output['waveform'], 22050, 'PCM_24')
 
 
-def tts(text, spk_id, n_timesteps=10, length_scale=1.0, temperature=0.70, output_path=None):
+def tts(text, spk_id, n_timesteps=10, length_scale=1.0, temperature=0.70, output_path=None, cleaner="catalan_cleaners"):
     n_spk = torch.tensor([spk_id], device=device, dtype=torch.long) if spk_id >= 0 else None
     outputs, rtfs = [], []
     rtfs_w = []
 
     output = synthesise(text, n_spk, n_timesteps, temperature,
-                        length_scale)
+                        length_scale, cleaner)
     print(output['mel'].shape)
     output['waveform'] = to_vocos_waveform(output['mel'], vocos_vocoder)
 
-    # Compute Real Time Factor (RTF) with HiFi-GAN
+    # Compute Real Time Factor (RTF) with Vocoder
     t = (dt.datetime.now() - output['start_t']).total_seconds()
     rtf_w = t * 22050 / (output['waveform'].shape[-1])
 
@@ -121,6 +120,7 @@ if __name__ == "__main__":
     parser.add_argument('--temperature', type=float, default=0.70, help='Temperature')
     parser.add_argument('--length_scale', type=float, default=0.9, help='Speech rate')
     parser.add_argument('--speaker_id', type=int, default=20, help='Speaker ID')
+    parser.add_argument('--cleaner', type=str, default='catalan_cleaners', help='Text cleaner to use')
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -135,4 +135,4 @@ if __name__ == "__main__":
     # load AlVoCat model
     vocos_vocoder = load_vocos_vocoder_from_hf(alvocat, device=device).to(device)
 
-    tts(args.text_input, spk_id=args.speaker_id, n_timesteps=80, length_scale=args.length_scale, temperature=args.temperature, output_path=args.output_path)
+    tts(args.text_input, spk_id=args.speaker_id, n_timesteps=80, length_scale=args.length_scale, temperature=args.temperature, output_path=args.output_path, cleaner=args.cleaner)
