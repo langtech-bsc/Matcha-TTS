@@ -119,13 +119,14 @@ if __name__ == "__main__":
     parser.add_argument('--text_input', type=str, default="Això és una prova de síntesi de veu.", help='Text file to synthesize')
     parser.add_argument('--temperature', type=float, default=0.70, help='Temperature')
     parser.add_argument('--length_scale', type=float, default=0.9, help='Speech rate')
-    parser.add_argument('--speaker_id', type=int, default=20, help='Speaker ID')
+    parser.add_argument('--speaker_id', type=int, default=2, help='Speaker ID')
     parser.add_argument('--cleaner', type=str, default='catalan_cleaners', help='Text cleaner to use')
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    matxa = "projecte-aina/matxa-tts-cat-multispeaker"
+    
+    #matxa = "projecte-aina/matxa-tts-cat-multispeaker"
+    matxa = "projecte-aina/matxa-tts-cat-multiaccent"
     alvocat = "projecte-aina/alvocat-vocos-22khz"
 
     # load Matxa from HF
