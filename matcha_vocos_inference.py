@@ -135,7 +135,7 @@ if __name__ == "__main__":
     matxa = "projecte-aina/matxa-tts-cat-multiaccent"
     alvocat = "projecte-aina/alvocat-vocos-22khz"
 
-    default_cleaner = "auto " if matxa == MULTIACCENT_MODEL else DEFAULT_CLEANER
+    default_cleaner = "auto" if matxa == MULTIACCENT_MODEL else DEFAULT_CLEANER
     parser = argparse.ArgumentParser()
     parser.add_argument('--output_path', type=str, default=None, help='Path to output the files.')
     parser.add_argument('--text_input', type=str, default="Això és una prova de síntesi de veu.", help='Text file to synthesize')
