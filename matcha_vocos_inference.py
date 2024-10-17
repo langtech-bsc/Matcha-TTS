@@ -142,7 +142,7 @@ if __name__ == "__main__":
     parser.add_argument('--temperature', type=float, default=0.70, help='Temperature')
     parser.add_argument('--length_scale', type=float, default=0.9, help='Speech rate')
     parser.add_argument('--speaker_id', type=int, default=2, help='Speaker ID')
-    parser.add_argument('--cleaner', type=str, default='auto', help='Text cleaner to use')
+    parser.add_argument('--cleaner', type=str, default=default_cleaner, help='Text cleaner to use')
     args = parser.parse_args()
     cleaner = get_cleaner_for_speaker_id(args.speaker_id) if "auto" else args.cleaner
 
