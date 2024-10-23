@@ -112,22 +112,41 @@ def tts(text, spk_id, n_timesteps=10, length_scale=1.0, temperature=0.70, output
     print(f"Mean RTF:\t\t\t\t{np.mean(rtfs):.6f} ± {np.std(rtfs):.6f}")
     print(f"Mean RTF Waveform (incl. vocoder):\t{np.mean(rtfs_w):.6f} ± {np.std(rtfs_w):.6f}")
 
+MULTIACCENT_MODEL = "projecte-aina/matxa-tts-cat-multiaccent"
+DEFAULT_CLEANER = "catalan_cleaners"
+
+def get_cleaner_for_speaker_id(speaker_id):
+    speaker_cleaner_mapping = {
+        0: "catalan_balear_cleaners",
+        1: "catalan_balear_cleaners",
+        2: "catalan_cleaners",
+        3: "catalan_cleaners",
+        4: "catalan_occidental_cleaners",
+        5: "catalan_occidental_cleaners",
+        6: "catalan_valencia_cleaners",
+        7: "catalan_valencia_cleaners"
+    }
+
+    return speaker_cleaner_mapping.get(speaker_id, DEFAULT_CLEANER)
+
 
 if __name__ == "__main__":
+    #matxa = "projecte-aina/matxa-tts-cat-multispeaker"
+    matxa = "projecte-aina/matxa-tts-cat-multiaccent"
+    alvocat = "projecte-aina/alvocat-vocos-22khz"
+
+    default_cleaner = "auto" if matxa == MULTIACCENT_MODEL else DEFAULT_CLEANER
     parser = argparse.ArgumentParser()
     parser.add_argument('--output_path', type=str, default=None, help='Path to output the files.')
     parser.add_argument('--text_input', type=str, default="Això és una prova de síntesi de veu.", help='Text file to synthesize')
     parser.add_argument('--temperature', type=float, default=0.70, help='Temperature')
     parser.add_argument('--length_scale', type=float, default=0.9, help='Speech rate')
     parser.add_argument('--speaker_id', type=int, default=2, help='Speaker ID')
-    parser.add_argument('--cleaner', type=str, default='catalan_cleaners', help='Text cleaner to use')
+    parser.add_argument('--cleaner', type=str, default=default_cleaner, help='Text cleaner to use')
     args = parser.parse_args()
+    cleaner = get_cleaner_for_speaker_id(args.speaker_id) if default_cleaner=="auto" and args.cleaner=="auto" else args.cleaner
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
-    #matxa = "projecte-aina/matxa-tts-cat-multispeaker"
-    matxa = "projecte-aina/matxa-tts-cat-multiaccent"
-    alvocat = "projecte-aina/alvocat-vocos-22khz"
 
     # load Matxa from HF
     model = load_model_from_hf(matxa, device=device).to(device)
@@ -135,5 +154,4 @@ if __name__ == "__main__":
 
     # load AlVoCat model
     vocos_vocoder = load_vocos_vocoder_from_hf(alvocat, device=device).to(device)
-
-    tts(args.text_input, spk_id=args.speaker_id, n_timesteps=80, length_scale=args.length_scale, temperature=args.temperature, output_path=args.output_path, cleaner=args.cleaner)
+    tts(args.text_input, spk_id=args.speaker_id, n_timesteps=80, length_scale=args.length_scale, temperature=args.temperature, output_path=args.output_path, cleaner=cleaner)
