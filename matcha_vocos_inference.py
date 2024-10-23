@@ -144,7 +144,7 @@ if __name__ == "__main__":
     parser.add_argument('--speaker_id', type=int, default=2, help='Speaker ID')
     parser.add_argument('--cleaner', type=str, default=default_cleaner, help='Text cleaner to use')
     args = parser.parse_args()
-    cleaner = get_cleaner_for_speaker_id(args.speaker_id) if "auto" else args.cleaner
+    cleaner = get_cleaner_for_speaker_id(args.speaker_id) if default_cleaner=="auto" and args.cleaner=="auto" else args.cleaner
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
