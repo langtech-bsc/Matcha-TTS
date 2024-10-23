@@ -44,7 +44,7 @@ wget
 seaborn
 piper_phonemize
 omegaconf
-huggingface_hub
+huggingface-hub==0.25.2
 # --------- vocos --------- #
 pyyaml
 encodec==0.1.1
