@@ -7,9 +7,10 @@ from lightning import LightningDataModule
 from torch.utils.data.dataloader import DataLoader
 
 from matcha.text import text_to_sequence
-from matcha.utils.audio import mel_spectrogram
+from matcha.utils.audio import mel_spectrogram, mel_spectrogram_vocos
 from matcha.utils.model import fix_len_compatibility, normalize
 from matcha.utils.utils import intersperse
+
 
 
 def parse_filelist(filelist_path, split_char="|"):
@@ -165,13 +166,22 @@ class TextMelDataset(torch.utils.data.Dataset):
             spk = None
 
         text = self.get_text(text, add_blank=self.add_blank)
-        mel = self.get_mel(filepath)
+        
+        if self.n_mels == 100:
+            mel = self.get_mel_vocos(filepath)
+        else:
+            mel = self.get_mel(filepath)
 
         return {"x": text, "y": mel, "spk": spk}
 
     def get_mel(self, filepath):
         audio, sr = ta.load(filepath)
-        assert sr == self.sample_rate
+        #assert sr == self.sample_rate
+        if audio.size(0) == 2:
+            audio = audio.mean(dim=0, keepdim=True)
+        if sr != self.sample_rate:  
+            #print("\n", "RESAMPLING!!!", "\n")
+            audio = ta.functional.resample(audio, sr, self.sample_rate)
         mel = mel_spectrogram(
             audio,
             self.n_fft,
@@ -182,6 +192,28 @@ class TextMelDataset(torch.utils.data.Dataset):
             self.f_min,
             self.f_max,
             center=False,
+        ).squeeze()
+        mel = normalize(mel, self.data_parameters["mel_mean"], self.data_parameters["mel_std"])
+        return mel
+
+    def get_mel_vocos(self, filepath):
+        audio, sr = ta.load(filepath)
+        #assert sr == self.sample_rate
+        # convert audio to mono if stereo
+        if audio.size(0) == 2:
+            audio = audio.mean(dim=0, keepdim=True)
+        if sr != self.sample_rate:  
+            audio = ta.functional.resample(audio, sr, self.sample_rate)
+        mel = mel_spectrogram_vocos(
+            audio,
+            self.n_fft,
+            self.n_mels,
+            self.sample_rate,
+            self.hop_length,
+            self.win_length,
+            self.f_min,
+            self.f_max,
+            center=True,
         ).squeeze()
         mel = normalize(mel, self.data_parameters["mel_mean"], self.data_parameters["mel_std"])
         return mel

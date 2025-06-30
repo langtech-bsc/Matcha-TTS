@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.utils.data
+import torchaudio
 from librosa.filters import mel as librosa_mel_fn
 from scipy.io.wavfile import read
 
@@ -80,3 +81,35 @@ def mel_spectrogram(y, n_fft, num_mels, sampling_rate, hop_size, win_size, fmin,
     spec = spectral_normalize_torch(spec)
 
     return spec
+
+
+def safe_log(x: torch.Tensor, clip_val: float = 1e-7) -> torch.Tensor:
+    """
+    Computes the element-wise logarithm of the input tensor with clipping to avoid near-zero values.
+
+    Args:
+        x (Tensor): Input tensor.
+        clip_val (float, optional): Minimum value to clip the input tensor. Defaults to 1e-7.
+
+    Returns:
+        Tensor: Element-wise logarithm of the input tensor with clipping applied.
+    """
+    return torch.log(torch.clip(x, min=clip_val))
+
+
+def mel_spectrogram_vocos(y, n_fft, num_mels, sampling_rate, hop_size, win_size, fmin, fmax, center=False):
+    mel_spec = torchaudio.transforms.MelSpectrogram(
+            sample_rate=sampling_rate,
+            n_fft=n_fft,
+            hop_length=hop_size,
+            n_mels=num_mels,
+            center=center,
+            f_min=fmin,
+            f_max=fmax,
+            power=1,
+        )
+    
+    mel = mel_spec(y)
+    features = safe_log(mel) # equivalent to spectral normalize
+    return features
+    
