@@ -30,7 +30,7 @@ class BASECFM(torch.nn.Module, ABC):
         self.estimator = None
 
     @torch.inference_mode()
-    def forward(self, mu, mask, n_timesteps, temperature=1.0, spks=None, cond=None):
+    def forward(self, mu, mask, n_timesteps, temperature=1.0, spks=None, cond=None, sway_sampling_coef=None):
         """Forward diffusion
 
         Args:
@@ -50,6 +50,10 @@ class BASECFM(torch.nn.Module, ABC):
         """
         z = torch.randn_like(mu) * temperature
         t_span = torch.linspace(0, 1, n_timesteps + 1, device=mu.device)
+
+        if sway_sampling_coef is not None:
+            t_span = t_span + sway_sampling_coef * (torch.cos(torch.pi / 2 * t_span) - 1 + t_span)
+
         return self.solve_euler(z, t_span=t_span, mu=mu, mask=mask, spks=spks, cond=cond)
 
     def solve_euler(self, x, t_span, mu, mask, spks, cond):
@@ -106,6 +110,18 @@ class BASECFM(torch.nn.Module, ABC):
 
         # random timestep
         t = torch.rand([b, 1, 1], device=mu.device, dtype=mu.dtype)
+
+
+        # force all batch samples to have an offset random t value: 
+        # https://github.com/kuleshov-group/mdlm/blob/master/diffusion.py
+        offset = torch.arange(b, device=mu.device) / b
+        offset = offset.unsqueeze(1).unsqueeze(1)
+        t = (t / b + offset) % 1
+
+        # use cosine timestep scheduler from cosyvoice: 
+        # https://github.com/FunAudioLLM/CosyVoice/blob/main/cosyvoice/flow/flow_matching.py
+        t = 1 - torch.cos(t * 0.5 * torch.pi)
+
         # sample noise p(x_0)
         z = torch.randn_like(x1)
 
