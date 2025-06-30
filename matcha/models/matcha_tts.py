@@ -3,6 +3,7 @@ import math
 import random
 
 import torch
+import torchaudio
 
 from huggingface_hub import hf_hub_download
 
@@ -22,7 +23,29 @@ from matcha.utils.model import (
     sequence_mask,
 )
 
+# Vocos imports
+from vocos import Vocos
+VOCOS_CHECKPOINT="/gpfs/projects/bsc88/speech/TTS/outputs/checkpoints/Vocos/last.ckpt"
+VOCOS_CONFIG="/gpfs/projects/bsc88/speech/TTS/repos/Matcha-TTS-BERT/configs/configs_vocos/vocos-matcha-inference.yaml"
+
+VOCOS_100_BINS_CHECKPOINT="/gpfs/projects/bsc88/speech/TTS/outputs/checkpoints/Vocos/vocos_original.bin"
+VOCOS_100_BINS_CONFIG="/gpfs/projects/bsc88/speech/TTS/outputs/checkpoints/Vocos/vocos_original_config.yaml"
+
+#import utmosv2
+UTMOS_CHECKPOINT_PATH="/gpfs/projects/bsc88/speech/TTS/outputs/checkpoints/utmosv2/fold0_s42_best_model.pth"
+
+import onnxruntime
+SCOREQ_CHECKPOINT_PATH="/gpfs/projects/bsc88/speech/TTS/outputs/checkpoints/scoreq/scoreq_nr.onnx"
+# metrics import
+# from matcha.metrics.UTMOS import UTMOSScore
+from torchaudio.models import squim_objective_base
+OBJECTIVE_MODEL_PATH = "/gpfs/projects/bsc88/speech/TTS/repos/wavenext_pytorch/metrics/squim_objective_dns2020.pth" 
+
 log = utils.get_pylogger(__name__)
+
+device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+
+torch.set_float32_matmul_precision("high")
 
 
 class MatchaTTS(BaseLightningClass):  # 🍵
@@ -40,6 +63,10 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         optimizer=None,
         scheduler=None,
         prior_loss=True,
+        freeze_dec=False,
+        freeze_half_enc=False,
+        num_layers_to_freeze=0
+
     ):
         super().__init__()
 
@@ -51,6 +78,9 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         self.n_feats = n_feats
         self.out_size = out_size
         self.prior_loss = prior_loss
+        self.freeze_dec = freeze_dec
+        self.freeze_half_enc = freeze_half_enc
+        self.num_layers_to_freeze = num_layers_to_freeze
 
         if n_spks > 1:
             self.spk_emb = torch.nn.Embedding(n_spks, spk_emb_dim)
@@ -64,6 +94,48 @@ class MatchaTTS(BaseLightningClass):  # 🍵
             spk_emb_dim,
         )
 
+        if self.freeze_half_enc:
+            print("Freezing encoder...")
+            for param in self.encoder.prenet.parameters():
+                param.requires_grad = False
+
+            for param in self.encoder.emb.parameters():
+                param.requires_grad = False
+            
+            # Freeze the parameters in the layers to be frozen
+            for i, layer in enumerate(self.encoder.encoder.attn_layers):
+                if i < self.num_layers_to_freeze:
+                    for param in layer.parameters():
+                        param.requires_grad = False
+                else:
+                    break
+
+            for i, layer in enumerate(self.encoder.encoder.norm_layers_1):
+                if i < self.num_layers_to_freeze:
+                    for param in layer.parameters():
+                        param.requires_grad = False
+                else:
+                    break
+
+            for i, layer in enumerate(self.encoder.encoder.ffn_layers):
+                if i < self.num_layers_to_freeze:
+                    for param in layer.parameters():
+                        param.requires_grad = False
+                else:
+                    break
+
+            for i, layer in enumerate(self.encoder.encoder.norm_layers_2):
+                if i < self.num_layers_to_freeze:
+                    for param in layer.parameters():
+                        param.requires_grad = False
+                else:
+                    break
+
+            for name, param in self.encoder.named_parameters():
+                print(f'{name} - requires_grad: {param.requires_grad}')
+
+            
+
         self.decoder = CFM(
             in_channels=2 * encoder.encoder_params.n_feats,
             out_channel=encoder.encoder_params.n_feats,
@@ -73,7 +145,80 @@ class MatchaTTS(BaseLightningClass):  # 🍵
             spk_emb_dim=spk_emb_dim,
         )
 
+
+        # Freeze prenet, emb and 3 first layers of TextEncoder
+
+
+        # if self.freeze_dec:
+        #     print("Freezing decoder...")
+        #     for param in self.decoder.parameters():
+        #         param.requires_grad = False
+
+        #     self.decoder.eval()
+
+        # print(f"VOCODER LOADED with {n_feats} bins!!", "\n")
+
+        # for param in self.vocoder.parameters():
+        #     param.requires_grad = False
+
+        # UTMOS model
+        # self.utmos_model = UTMOSScore(device=device)
+
+        # for param in self.utmos_model.parameters():
+        #     param.requires_grad = False
+
+        # squim models 
+        #https://github.com/pytorch/audio/blob/ea437b31ce316ea3d66fe73768c0dcb94edb79ad/src/torchaudio/pipelines/_squim_pipeline.py#L27
+
+        # self.squim_model = squim_objective_base()
+        # state_dict = torch.load(OBJECTIVE_MODEL_PATH, map_location=device)
+        # self.squim_model.load_state_dict(state_dict) 
+        # self.squim_model.eval()
+
+
+        # for param in self.squim_model.parameters():
+        #      param.requires_grad = False
+
+        # print("SQUIM model loaded!")
+
+        #self.utmosv2_model = utmosv2.create_model(checkpoint_path=UTMOS_CHECKPOINT_PATH)
+        #print("UTMOS model loaded!")
+
+        # scoreq
+        # self.scoreq_onnx = onnxruntime.InferenceSession(SCOREQ_CHECKPOINT_PATH)
+
+        self._vocoder = None
+        self._squim_model = None
+        self._scoreq_onnx = None
+
         self.update_data_statistics(data_statistics)
+
+
+    def load_vocoder(self):
+        # Initialize Vocos
+        if self.n_feats == 80:
+            self._vocoder =  Vocos.from_local_pretrained(VOCOS_CONFIG, VOCOS_CHECKPOINT, device)
+        elif self.n_feats == 100:
+            self._vocoder =  Vocos.from_local_pretrained(VOCOS_100_BINS_CONFIG, VOCOS_100_BINS_CHECKPOINT, device)
+
+        self._vocoder = self._vocoder.to(device)
+        # print("Vocos device: ", self._vocoder.device)
+        # self._vocoder.eval()
+        print(f"VOCODER LOADED with {self.n_feats} bins!!", "\n")
+        return self._vocoder
+
+    def load_squim(self):
+        self._squim_model = squim_objective_base()
+        state_dict = torch.load(OBJECTIVE_MODEL_PATH, map_location=device)
+        self._squim_model.load_state_dict(state_dict) 
+        self._squim_model = self._squim_model.to(device)
+        # self._squim_model.eval()
+        print("SQUIM model loaded!")
+        return self._squim_model
+
+    def load_scoreq_onnx(self):
+        self._scoreq_onnx = onnxruntime.InferenceSession(SCOREQ_CHECKPOINT_PATH)
+
 
     @classmethod
     def from_hparams(cls, cfg: str):
@@ -101,8 +246,35 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         model.eval()
         return model
 
+    # @torch.inference_mode()
+    def compute_quality_scores(self, waveform):
+        audio_16_khz = torchaudio.functional.resample(waveform, orig_freq=22050, new_freq=16000)
+        print(audio_16_khz.shape)
+        
+        # utmos_score = self.utmos_model.score(audio_16_khz.to(device))
+        audio_16_khz = audio_16_khz.half().cuda()
+        obj_scores = self._squim_model(audio_16_khz)  # squeeze(0)
+
+        return obj_scores  # utmos_score
+    
+    # @torch.inference_mode()
+    def generate_waveform(self, mel, mel_length):
+        
+        t = dt.datetime.now()
+        mel = mel[:, :, :mel_length]
+        if self._vocoder is None:
+            self.load_vocoder()
+        mel.half().cuda()
+        # mel = mel.to("cuda")
+        print("Mel type: ", mel.dtype, "Mel device: ", mel.device)
+        waveform = self._vocoder.decode(mel)
+        t = (dt.datetime.now() - t).total_seconds()
+        rtf = t * 22050 / (mel.shape[-1] * 256)
+
+        return waveform, rtf
+
     @torch.inference_mode()
-    def synthesise(self, x, x_lengths, n_timesteps, temperature=1.0, spks=None, length_scale=1.0):
+    def synthesise(self, x, x_lengths, n_timesteps, temperature=1.0, spks=None, length_scale=1.0, sway_sampling_coef=None):
         """
         Generates mel-spectrogram from text. Returns:
             1. encoder outputs
@@ -120,6 +292,8 @@ class MatchaTTS(BaseLightningClass):  # 🍵
                 shape: (batch_size,)
             length_scale (float, optional): controls speech pace.
                 Increase value to slow down generated speech and vice versa.
+            sway_sampling_coef (float, optional): controls proportion of sway sampling
+                Implemented in F5-TTS for a better flow-matching inference. Negative better for less timesteps
 
         Returns:
             dict: {
@@ -136,6 +310,10 @@ class MatchaTTS(BaseLightningClass):  # 🍵
                 "rtf": float,
                 # Real-time factor
         """
+
+        #print("STARTING SYNTHESIZE!!!")
+        # print(spks)
+
         # For RTF computation
         t = dt.datetime.now()
 
@@ -163,7 +341,8 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         encoder_outputs = mu_y[:, :, :y_max_length]
 
         # Generate sample tracing the probability flow
-        decoder_outputs = self.decoder(mu_y, y_mask, n_timesteps, temperature, spks)
+        print("Sway Sampling coefficient: ", sway_sampling_coef)
+        decoder_outputs = self.decoder(mu_y, y_mask, n_timesteps, temperature, spks, sway_sampling_coef)
         decoder_outputs = decoder_outputs[:, :, :y_max_length]
 
         t = (dt.datetime.now() - t).total_seconds()
