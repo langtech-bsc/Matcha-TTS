@@ -26,7 +26,7 @@ phonemizer      # phonemization of text
 tensorboard
 librosa
 Cython
-numpy==1.*
+numpy  # ==1.*
 einops
 inflect
 Unidecode
@@ -35,7 +35,7 @@ torchaudio
 matplotlib
 pandas
 conformer==0.3.2
-diffusers==0.25.0
+diffusers  # ==0.25.0
 notebook
 ipywidgets
 gradio
@@ -44,7 +44,7 @@ wget
 seaborn
 piper_phonemize
 omegaconf
-huggingface-hub==0.25.2
+huggingface-hub  # ==0.25.2
 # --------- vocos --------- #
 pyyaml
 encodec==0.1.1
