@@ -12,11 +12,12 @@ import argparse
 
 # Vocos imports
 from vocos import Vocos
+from vocos.spectral_ops import ISTFT
 
 # Matcha imports
 from matcha.models.matcha_tts import MatchaTTS
 from matcha.text import sequence_to_text, text_to_sequence
-from matcha.utils.utils import get_user_data_dir, intersperse
+from matcha.utils.utils import intersperse
 
 
 def load_model_from_hf(matcha_hf, device):
@@ -47,7 +48,7 @@ def process_text(text: str, cleaner:str):
 
 
 @torch.inference_mode()
-def synthesise(text, spks, n_timesteps, temperature, length_scale, cleaner):
+def synthesise(text, spks, n_timesteps, temperature, length_scale, sway_samp_coef, cleaner):
     text_processed = process_text(text, cleaner)
     start_t = dt.datetime.now()
     output = model.synthesise(
@@ -56,7 +57,8 @@ def synthesise(text, spks, n_timesteps, temperature, length_scale, cleaner):
         n_timesteps=n_timesteps,
         temperature=temperature,
         spks=spks,
-        length_scale=length_scale
+        length_scale=length_scale,
+        sway_sampling_coef=sway_samp_coef
     )
     # merge everything to one dict
     output.update({'start_t': start_t, **text_processed})
@@ -65,8 +67,40 @@ def synthesise(text, spks, n_timesteps, temperature, length_scale, cleaner):
 
 @torch.inference_mode()
 def to_vocos_waveform(mel, vocoder):
-    audio = vocoder.decode(mel).cpu().squeeze()
-    return audio
+    """Convert mel spectrogram to waveform using Vocos."""
+
+    if denoise:
+
+        print("Denoising...")
+
+        _, spectrogram = vocoder.decode(mel)
+        # Vocoder bias
+        mel_rand = torch.zeros_like(torch.tensor(mel)).to(device)
+        _, spectrogram_bias = vocoder.decode(mel_rand)  # .cpu().squeeze()
+
+        # Denoising
+        spec = torch.view_as_real(torch.tensor(spectrogram)).to(device)
+        # get magnitude of vocos spectrogram
+        mag_spec = torch.sqrt(spec.pow(2).sum(-1))
+
+        # get magnitude of bias spectrogram
+        spec_bias = torch.view_as_real(torch.tensor(spectrogram_bias)).to(device)
+        mag_spec_bias = torch.sqrt(spec_bias.pow(2).sum(-1))
+
+        # substract 
+        strength = 0.0025
+        mag_spec_denoised = mag_spec - mag_spec_bias * strength
+        mag_spec_denoised = torch.clamp(mag_spec_denoised, 0.0)
+
+        # return to complex spectrogram from magnitude
+        angle = torch.atan2(spec[..., -1], spec[..., 0] )
+        spectrogram = torch.complex(mag_spec_denoised * torch.cos(angle), mag_spec_denoised * torch.sin(angle))
+
+        audio = istft(spectrogram).cpu().squeeze()
+    else:
+        audio, _ = vocoder.decode(mel)
+
+    return audio.cpu().squeeze()
 
 
 def save_to_folder(filename: str, output: dict, folder: str):
@@ -76,13 +110,14 @@ def save_to_folder(filename: str, output: dict, folder: str):
     sf.write(folder / f'{filename}.wav', output['waveform'], 22050, 'PCM_24')
 
 
-def tts(text, spk_id, n_timesteps=10, length_scale=1.0, temperature=0.70, output_path=None, cleaner="catalan_cleaners"):
+def tts(text, spk_id, n_timesteps=10, length_scale=1.0, temperature=0.70, sway_samp_coef=-1.0 ,output_path=None, cleaner="catalan_cleaners"):
     n_spk = torch.tensor([spk_id], device=device, dtype=torch.long) if spk_id >= 0 else None
     outputs, rtfs = [], []
     rtfs_w = []
 
     output = synthesise(text, n_spk, n_timesteps, temperature,
-                        length_scale, cleaner)
+                        length_scale, sway_samp_coef, cleaner)
+
     print(output['mel'].shape)
     output['waveform'] = to_vocos_waveform(output['mel'], vocos_vocoder)
 
@@ -112,7 +147,7 @@ def tts(text, spk_id, n_timesteps=10, length_scale=1.0, temperature=0.70, output
     print(f"Mean RTF:\t\t\t\t{np.mean(rtfs):.6f} ± {np.std(rtfs):.6f}")
     print(f"Mean RTF Waveform (incl. vocoder):\t{np.mean(rtfs_w):.6f} ± {np.std(rtfs_w):.6f}")
 
-MULTIACCENT_MODEL = "projecte-aina/matxa-tts-cat-multiaccent"
+MULTIACCENT_MODEL = "langtech-veu/matxa-tts-ca-multiaccent-v2"
 DEFAULT_CLEANER = "catalan_cleaners"
 
 def get_cleaner_for_speaker_id(speaker_id):
@@ -124,15 +159,23 @@ def get_cleaner_for_speaker_id(speaker_id):
         4: "catalan_occidental_cleaners",
         5: "catalan_occidental_cleaners",
         6: "catalan_valencia_cleaners",
-        7: "catalan_valencia_cleaners"
+        7: "catalan_valencia_cleaners",
+        8: "catalan_valencia_cleaners",
+        9: "catalan_valencia_cleaners",
+        10: "catalan_balear_cleaners",
+        11: "catalan_cleaners",
+        12: "catalan_cleaners",
+        13: "catalan_occidental_cleaners",
+        14: "catalan_rossellones_cleaners",
+        15: "catalan_rossellones_cleaners"
     }
 
     return speaker_cleaner_mapping.get(speaker_id, DEFAULT_CLEANER)
 
 
 if __name__ == "__main__":
-    #matxa = "projecte-aina/matxa-tts-cat-multispeaker"
-    matxa = "projecte-aina/matxa-tts-cat-multiaccent"
+
+    matxa = "langtech-veu/matxa-tts-ca-multiaccent-v2"
     alvocat = "projecte-aina/alvocat-vocos-22khz"
 
     default_cleaner = "auto" if matxa == MULTIACCENT_MODEL else DEFAULT_CLEANER
@@ -142,11 +185,18 @@ if __name__ == "__main__":
     parser.add_argument('--temperature', type=float, default=0.70, help='Temperature')
     parser.add_argument('--length_scale', type=float, default=0.9, help='Speech rate')
     parser.add_argument('--speaker_id', type=int, default=2, help='Speaker ID')
+    parser.add_argument('--sway_sampling_coef', type=float, default=-1.0, help='coefficient for CFM sway sampling')
     parser.add_argument('--cleaner', type=str, default=default_cleaner, help='Text cleaner to use')
+    parser.add_argument('--denoiser', type=bool, default=True, help='Enable/Disable denoiser')
     args = parser.parse_args()
+    
     cleaner = get_cleaner_for_speaker_id(args.speaker_id) if default_cleaner=="auto" and args.cleaner=="auto" else args.cleaner
-
+    print("Cleaner: ", cleaner)
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    denoise = args.denoiser
+    istft = ISTFT(n_fft=1024, hop_length=256, win_length=1024, padding="same").to(device)
 
     # load Matxa from HF
     model = load_model_from_hf(matxa, device=device).to(device)
@@ -154,4 +204,7 @@ if __name__ == "__main__":
 
     # load AlVoCat model
     vocos_vocoder = load_vocos_vocoder_from_hf(alvocat, device=device).to(device)
-    tts(args.text_input, spk_id=args.speaker_id, n_timesteps=80, length_scale=args.length_scale, temperature=args.temperature, output_path=args.output_path, cleaner=cleaner)
+
+    # run the TTS
+    tts(args.text_input, spk_id=args.speaker_id, n_timesteps=80, length_scale=args.length_scale, temperature=args.temperature, 
+        sway_samp_coef= args.sway_sampling_coef, output_path=args.output_path, cleaner=cleaner)
