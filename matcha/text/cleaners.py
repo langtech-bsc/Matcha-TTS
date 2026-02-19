@@ -14,7 +14,6 @@ hyperparameter. Some cleaners are English-specific. You'll typically want to use
 import logging
 import re
 
-import piper_phonemize
 from unidecode import unidecode
 
 # To avoid excessive logging we set the log level of the phonemizer package to Critical
@@ -84,15 +83,3 @@ def transliteration_cleaners(text):
     text = lowercase(text)
     text = collapse_whitespace(text)
     return text
-
-'''
-def english_cleaners2(text):
-    """Pipeline for English text, including abbreviation expansion. + punctuation + stress"""
-    text = text.replace('\u0303', '')
-    text = convert_to_ascii(text)
-    text = lowercase(text)
-    text = expand_abbreviations(text)
-    phonemes = global_phonemizer.phonemize([text], strip=True, njobs=1)[0]
-    phonemes = collapse_whitespace(phonemes)
-    return phonemes
-'''
