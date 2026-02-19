@@ -79,18 +79,6 @@ class BaseLightningClass(LightningModule, ABC):
             "diff_loss": diff_loss,
         }
     
-    # @abstractmethod
-    # def synthesize(self):
-    #     pass
-
-    # @abstractmethod
-    # def generate_waveform(self):
-    #     pass
-    
-    # @abstractmethod
-    # def compute_quality_scores(self):
-    #     pass
-    
     def get_quality_scores(self, batch):
         x, x_lengths, spks = batch["x"], batch["x_lengths"], batch["spks"]
         # 'UTMoS_score', 'STOI', 'PESQ', 'SI-SDR'
@@ -116,19 +104,12 @@ class BaseLightningClass(LightningModule, ABC):
 
 
             obj_scores = self.compute_quality_scores(wf)  # utmos_score
-            
-            # create temp wav for utmos
-            # temp_wav_path = os.path.join(temp_dir, f"temp_audio_{idx}.wav")
-            # torchaudio.save(temp_wav_path, wf.cpu(), 16000)
 
             # scoreq
             ort_inputs = {"audio_input": wf.unsqueeze(0).cpu().numpy()}
             scoreq_score = self._scoreq_onnx.run(None, ort_inputs)[0][0][0]
 
             print(scoreq_score)
-
-            # utmos
-            # utmos_score = self.utmosv2_model.predict(input_path=temp_wav_path)
 
             # utmos.append(utmos_score)
             scoreq.append(scoreq_score)
