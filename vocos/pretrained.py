@@ -129,8 +129,8 @@ class Vocos(nn.Module):
             Tensor: The output tensor representing the reconstructed audio waveform of shape (B, T).
         """
         x = self.backbone(features_input, **kwargs)
-        audio_output = self.head(x)
-        return audio_output
+        audio_output, S = self.head(x)
+        return audio_output, S
 
     @torch.inference_mode()
     def codes_to_features(self, codes: torch.Tensor) -> torch.Tensor:
