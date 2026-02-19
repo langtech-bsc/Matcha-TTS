@@ -192,13 +192,13 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         return model
 
     @classmethod
-    def from_pretrained(cls, repo_id: str, device, revision: Optional[str] = None):
+    def from_pretrained(cls, repo_id: str, token_hf: str, device, revision: Optional[str] = None):
         """
         Class method to create a new Matcha-TTS model instance from a pre-trained model stored in the Hugging Face
         model hub.
         """
-        config_path = hf_hub_download(repo_id=repo_id, filename="config.yaml", revision=revision)
-        model_path = hf_hub_download(repo_id=repo_id, filename="pytorch_model.bin", revision=revision)
+        config_path = hf_hub_download(repo_id=repo_id, filename="config.yaml", revision=revision, token=token_hf)
+        model_path = hf_hub_download(repo_id=repo_id, filename="pytorch_model.bin", revision=revision, token=token_hf)
         model = cls.from_hparams(config_path)
         state_dict = torch.load(model_path, map_location=device)
         model.load_state_dict(state_dict)
