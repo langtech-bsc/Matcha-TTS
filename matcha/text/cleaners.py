@@ -16,8 +16,6 @@ import re
 
 from unidecode import unidecode
 
-# To avoid excessive logging we set the log level of the phonemizer package to Critical
-critical_logger.setLevel(logging.CRITICAL)
 
 # Intializing the phonemizer globally significantly reduces the speed
 # now the phonemizer is not initialising at every call
