@@ -66,7 +66,7 @@ class ISTFTHead(FourierHead):
         # better directly produce the complex value 
         S = mag * (x + 1j * y)
         audio = self.istft(S)
-        return audio
+        return audio, S
 
 
 class IMDCTSymExpHead(FourierHead):
