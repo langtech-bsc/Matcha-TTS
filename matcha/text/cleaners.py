@@ -14,66 +14,15 @@ hyperparameter. Some cleaners are English-specific. You'll typically want to use
 import logging
 import re
 
-import phonemizer
 import piper_phonemize
 from unidecode import unidecode
 
 # To avoid excessive logging we set the log level of the phonemizer package to Critical
-critical_logger = logging.getLogger("phonemizer")
 critical_logger.setLevel(logging.CRITICAL)
 
 # Intializing the phonemizer globally significantly reduces the speed
 # now the phonemizer is not initialising at every call
 # Might be less flexible, but it is much-much faster
-global_phonemizer_cat = phonemizer.backend.EspeakBackend(
-    language="ca",  # 'ca' if catalan
-    preserve_punctuation=True,
-    with_stress=True,
-    language_switch="remove-flags",
-    logger=critical_logger,
-)
-
-global_phonemizer = phonemizer.backend.EspeakBackend(
-    language="en-us",
-    preserve_punctuation=True,
-    with_stress=True,
-    language_switch="remove-flags",
-    logger=critical_logger,
-)
-
-global_phonemizer_cat_bal = phonemizer.backend.EspeakBackend(
-    language="ca-ba",
-    preserve_punctuation=True,
-    with_stress=True,
-    language_switch="remove-flags",
-    logger=critical_logger,
-)
-
-global_phonemizer_cat_occ = phonemizer.backend.EspeakBackend(
-    language="ca-nw",
-    preserve_punctuation=True,
-    with_stress=True,
-    language_switch="remove-flags",
-    logger=critical_logger,
-)
-
-global_phonemizer_cat_val = phonemizer.backend.EspeakBackend(
-    language="ca-va",
-    preserve_punctuation=True,
-    with_stress=True,
-    language_switch="remove-flags",
-    logger=critical_logger,
-)
-
-
-global_phonemizer_cat_ro = phonemizer.backend.EspeakBackend(
-    language="ca-ro",
-    preserve_punctuation=True,
-    with_stress=True,
-    language_switch="remove-flags",
-    logger=critical_logger,
-)
-
 
 # Regular expression matching whitespace:
 _whitespace_re = re.compile(r"\s+")
@@ -136,7 +85,7 @@ def transliteration_cleaners(text):
     text = collapse_whitespace(text)
     return text
 
-
+'''
 def english_cleaners2(text):
     """Pipeline for English text, including abbreviation expansion. + punctuation + stress"""
     text = text.replace('\u0303', '')
@@ -146,68 +95,4 @@ def english_cleaners2(text):
     phonemes = global_phonemizer.phonemize([text], strip=True, njobs=1)[0]
     phonemes = collapse_whitespace(phonemes)
     return phonemes
-
-
-def catalan_cleaners(text):
-    """Pipeline for Catalan text, including abbreviation expansion. + punctuation + stress"""
-    # text = convert_to_ascii(text)
-    text = lowercase(text)
-    # text = expand_abbreviations(text)
-    phonemes = global_phonemizer_cat.phonemize([text], strip=True, njobs=1)[0]
-    phonemes = collapse_whitespace(phonemes)
-    # print(phonemes)  # check punctuations!!
-    return phonemes
-
-
-def catalan_balear_cleaners(text):
-    """Pipeline for Catalan text, including abbreviation expansion. + punctuation + stress"""
-    # text = convert_to_ascii(text)
-    text = lowercase(text)
-    # text = expand_abbreviations(text)
-    phonemes = global_phonemizer_cat_bal.phonemize([text], strip=True, njobs=1)[0]
-    phonemes = collapse_whitespace(phonemes)
-    # print(phonemes)  # check punctuations!!
-    return phonemes
-
-
-def catalan_occidental_cleaners(text):
-    """Pipeline for Catalan text, including abbreviation expansion. + punctuation + stress"""
-    # text = convert_to_ascii(text)
-    text = lowercase(text)
-    # text = expand_abbreviations(text)
-    phonemes = global_phonemizer_cat_occ.phonemize([text], strip=True, njobs=1)[0]
-    phonemes = collapse_whitespace(phonemes)
-    # print(phonemes)  # check punctuations!!
-    return phonemes
-
-
-def catalan_valencia_cleaners(text):
-    """Pipeline for Catalan text, including abbreviation expansion. + punctuation + stress"""
-    # text = convert_to_ascii(text)
-    text = lowercase(text)
-    # text = expand_abbreviations(text)
-    phonemes = global_phonemizer_cat_val.phonemize([text], strip=True, njobs=1)[0]
-    phonemes = collapse_whitespace(phonemes)
-    # print(phonemes)  # check punctuations!!
-    return phonemes
-
-
-def catalan_rossellones_cleaners(text):
-    """Pipeline for Catalan text, including abbreviation expansion. + punctuation + stress"""
-    # text = convert_to_ascii(text)
-    text = lowercase(text)
-    # text = expand_abbreviations(text)
-    phonemes = global_phonemizer_cat_ro.phonemize([text], strip=True, njobs=1)[0]
-    phonemes = collapse_whitespace(phonemes)
-    # print(phonemes)  # check punctuations!!
-    return phonemes
-
-
-def english_cleaners_piper(text):
-    """Pipeline for English text, including abbreviation expansion. + punctuation + stress"""
-    text = convert_to_ascii(text)
-    text = lowercase(text)
-    text = expand_abbreviations(text)
-    phonemes = "".join(piper_phonemize.phonemize_espeak(text=text, voice="en-US")[0])
-    phonemes = collapse_whitespace(phonemes)
-    return phonemes
+'''
