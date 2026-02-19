@@ -41,7 +41,6 @@ gradio
 gdown
 wget
 seaborn
-piper_phonemize
 omegaconf
 huggingface-hub  # ==0.25.2
 onnxruntime-gpu
