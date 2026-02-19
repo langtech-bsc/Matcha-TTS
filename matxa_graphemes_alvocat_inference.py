@@ -158,6 +158,7 @@ if __name__ == "__main__":
     parser.add_argument('--length_scale', type=float, default=0.9, help='Speech rate')
     parser.add_argument('--speaker_id', type=int, default=2, help='Speaker ID')
     parser.add_argument('--sway_sampling_coef', type=float, default=-1.0, help='coefficient for CFM sway sampling')
+    parser.add_argument('--num_timesteps_cfm', type=int, default=20, help='number of decoding flow-matching timesteps')
     parser.add_argument('--denoiser', type=bool, default=True, help='Enable/Disable denoiser')
     args = parser.parse_args()
     
@@ -177,5 +178,5 @@ if __name__ == "__main__":
     vocos_vocoder = load_vocos_vocoder_from_hf(alvocat, device=device).to(device)
 
     # run the TTS
-    tts(args.text_input, spk_id=args.speaker_id, n_timesteps=80, length_scale=args.length_scale, temperature=args.temperature, 
+    tts(args.text_input, spk_id=args.speaker_id, n_timesteps=args.num_timesteps_cfm, length_scale=args.length_scale, temperature=args.temperature, 
         sway_samp_coef= args.sway_sampling_coef, output_path=args.output_path, cleaner=cleaner)
