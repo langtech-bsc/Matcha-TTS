@@ -25,21 +25,21 @@ from matcha.utils.model import (
 
 # Vocos imports
 from vocos import Vocos
-VOCOS_CHECKPOINT="/gpfs/projects/bsc88/speech/TTS/outputs/checkpoints/Vocos/last.ckpt"
-VOCOS_CONFIG="/gpfs/projects/bsc88/speech/TTS/repos/Matcha-TTS-BERT/configs/configs_vocos/vocos-matcha-inference.yaml"
+VOCOS_CHECKPOINT="/your/vocos/path/last.ckpt"
+VOCOS_CONFIG="/your/vocos/path/vocos-matcha-inference.yaml"
 
-VOCOS_100_BINS_CHECKPOINT="/gpfs/projects/bsc88/speech/TTS/outputs/checkpoints/Vocos/vocos_original.bin"
-VOCOS_100_BINS_CONFIG="/gpfs/projects/bsc88/speech/TTS/outputs/checkpoints/Vocos/vocos_original_config.yaml"
+VOCOS_100_BINS_CHECKPOINT="/your/vocos/path/vocos_original.bin"
+VOCOS_100_BINS_CONFIG="/your/vocos/path/vocos_original_config.yaml"
 
 #import utmosv2
-UTMOS_CHECKPOINT_PATH="/gpfs/projects/bsc88/speech/TTS/outputs/checkpoints/utmosv2/fold0_s42_best_model.pth"
+UTMOS_CHECKPOINT_PATH="/utmosv2/fold0_s42_best_model.pth"
 
 import onnxruntime
-SCOREQ_CHECKPOINT_PATH="/gpfs/projects/bsc88/speech/TTS/outputs/checkpoints/scoreq/scoreq_nr.onnx"
+SCOREQ_CHECKPOINT_PATH="/scoreq/scoreq_nr.onnx"
 # metrics import
 # from matcha.metrics.UTMOS import UTMOSScore
 from torchaudio.models import squim_objective_base
-OBJECTIVE_MODEL_PATH = "/gpfs/projects/bsc88/speech/TTS/repos/wavenext_pytorch/metrics/squim_objective_dns2020.pth" 
+OBJECTIVE_MODEL_PATH = "/squim/squim_objective_dns2020.pth" 
 
 log = utils.get_pylogger(__name__)
 
