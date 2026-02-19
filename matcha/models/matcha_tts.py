@@ -146,47 +146,6 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         )
 
 
-        # Freeze prenet, emb and 3 first layers of TextEncoder
-
-
-        # if self.freeze_dec:
-        #     print("Freezing decoder...")
-        #     for param in self.decoder.parameters():
-        #         param.requires_grad = False
-
-        #     self.decoder.eval()
-
-        # print(f"VOCODER LOADED with {n_feats} bins!!", "\n")
-
-        # for param in self.vocoder.parameters():
-        #     param.requires_grad = False
-
-        # UTMOS model
-        # self.utmos_model = UTMOSScore(device=device)
-
-        # for param in self.utmos_model.parameters():
-        #     param.requires_grad = False
-
-        # squim models 
-        #https://github.com/pytorch/audio/blob/ea437b31ce316ea3d66fe73768c0dcb94edb79ad/src/torchaudio/pipelines/_squim_pipeline.py#L27
-
-        # self.squim_model = squim_objective_base()
-        # state_dict = torch.load(OBJECTIVE_MODEL_PATH, map_location=device)
-        # self.squim_model.load_state_dict(state_dict) 
-        # self.squim_model.eval()
-
-
-        # for param in self.squim_model.parameters():
-        #      param.requires_grad = False
-
-        # print("SQUIM model loaded!")
-
-        #self.utmosv2_model = utmosv2.create_model(checkpoint_path=UTMOS_CHECKPOINT_PATH)
-        #print("UTMOS model loaded!")
-
-        # scoreq
-        # self.scoreq_onnx = onnxruntime.InferenceSession(SCOREQ_CHECKPOINT_PATH)
-
         self._vocoder = None
         self._squim_model = None
         self._scoreq_onnx = None
@@ -310,9 +269,6 @@ class MatchaTTS(BaseLightningClass):  # 🍵
                 "rtf": float,
                 # Real-time factor
         """
-
-        #print("STARTING SYNTHESIZE!!!")
-        # print(spks)
 
         # For RTF computation
         t = dt.datetime.now()
