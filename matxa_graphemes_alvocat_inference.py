@@ -20,8 +20,8 @@ from matcha.text import sequence_to_text, text_to_sequence
 from matcha.utils.utils import intersperse
 
 
-def load_model_from_hf(matcha_hf, device):
-    model = MatchaTTS.from_pretrained(matcha_hf, device=device)
+def load_model_from_hf(matcha_hf, token_hf, device):
+    model = MatchaTTS.from_pretrained(matcha_hf, token_hf=token_hf, device=device)
     return model
 
 
@@ -156,6 +156,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--output_path', type=str, default=None, help='Path to output the files.')
+    parser.add_argument('--token_hf', type=str, default=None, help='Your token for private HF repos.')
     parser.add_argument('--text_input', type=str, default="Això és una prova de síntesi de veu.", help='Text file to synthesize')
     parser.add_argument('--temperature', type=float, default=0.70, help='Temperature')
     parser.add_argument('--length_scale', type=float, default=0.9, help='Speech rate')
@@ -167,12 +168,13 @@ if __name__ == "__main__":
     cleaner = "basic_cleaners"
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    token_hf = args.token_hf
 
     denoise = args.denoiser
     istft = ISTFT(n_fft=1024, hop_length=256, win_length=1024, padding="same").to(device)
 
     # load Matxa from HF
-    model = load_model_from_hf(matxa, device=device).to(device)
+    model = load_model_from_hf(matxa, token_hf, device=device).to(device)
     print(f"Model loaded! Parameter count: {count_params(model)}")
 
     # load AlVoCat model
