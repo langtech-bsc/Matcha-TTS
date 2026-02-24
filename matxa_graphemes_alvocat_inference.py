@@ -151,6 +151,8 @@ if __name__ == "__main__":
     alvocat = "projecte-aina/alvocat-vocos-22khz"
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('matxa_model', type=str, help="Matxa model to use")
+    parser.add_argument('vocoder_model', type=str, help="Vocoder model to use")
     parser.add_argument('--output_path', type=str, default=None, help='Path to output the files.')
     parser.add_argument('--token_hf', type=str, default=None, help='Your token for private HF repos.')
     parser.add_argument('--text_input', type=str, default="Això és una prova de síntesi de veu.", help='Text file to synthesize')
