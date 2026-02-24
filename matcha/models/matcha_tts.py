@@ -273,6 +273,8 @@ class MatchaTTS(BaseLightningClass):  # 🍵
         # For RTF computation
         t = dt.datetime.now()
 
+        print("NUM OF SPEAKERS", self.n_spks)
+
         if self.n_spks > 1:
             # Get speaker embedding
             spks = self.spk_emb(spks.long())
