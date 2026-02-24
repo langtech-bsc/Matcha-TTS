@@ -147,8 +147,8 @@ def tts(text, spk_id, n_timesteps=10, length_scale=1.0, temperature=0.70, sway_s
 
 if __name__ == "__main__":
 
-    matxa = "langtech-veu/gramatxa-tts-ca-multiaccent"
-    alvocat = "projecte-aina/alvocat-vocos-22khz"
+    # matxa = "langtech-veu/gramatxa-tts-ca-multiaccent"
+    # alvocat = "projecte-aina/alvocat-vocos-22khz"
 
     parser = argparse.ArgumentParser()
     parser.add_argument('matxa_model', type=str, help="Matxa model to use")
@@ -173,11 +173,11 @@ if __name__ == "__main__":
     istft = ISTFT(n_fft=1024, hop_length=256, win_length=1024, padding="same").to(device)
 
     # load Matxa from HF
-    model = load_model_from_hf(matxa, token_hf, device=device).to(device)
+    model = load_model_from_hf(args.matxa_model, token_hf, device=device).to(device)
     print(f"Model loaded! Parameter count: {count_params(model)}")
 
     # load AlVoCat model
-    vocos_vocoder = load_vocos_vocoder_from_hf(alvocat, device=device).to(device)
+    vocos_vocoder = load_vocos_vocoder_from_hf(args.vocoder_model, device=device).to(device)
 
     # run the TTS
     tts(args.text_input, spk_id=args.speaker_id, n_timesteps=args.num_timesteps_cfm, length_scale=args.length_scale, temperature=args.temperature, 
